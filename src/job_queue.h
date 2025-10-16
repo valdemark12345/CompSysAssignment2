@@ -3,8 +3,24 @@
 
 #include <pthread.h>
 
+struct job {
+    void (*function)(void *);
+    void *arg;               
+};
+
 struct job_queue {
-  int dummy;
+  struct job *jobs;
+  int capacity;
+  int size;
+  int front; 
+  int back;
+
+  pthread_mutex_t lock;           
+  pthread_cond_t empty_cond;
+  pthread_cond_t full_cond;
+
+  int pop_wait;
+  int destory_wait;
 };
 
 // Initialise a job queue with the given capacity.  The queue starts out
