@@ -49,8 +49,6 @@ int job_queue_destroy(struct job_queue *job_queue) {
 
   pthread_mutex_unlock(&job_queue->lock);
 
-
-
   return 0;
 }
 
