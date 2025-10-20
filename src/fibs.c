@@ -107,6 +107,8 @@ int main(int argc, char * const *argv) {
   while ((line_len = getline(&line, &buf_len, stdin)) != -1) {
     job_queue_push(&jq, (void*)strdup(line));
   }
+  
+
   free(line);
 
   // Destroy the queue.
@@ -120,4 +122,6 @@ int main(int argc, char * const *argv) {
     }
   }
   free(threads);
+
+  return 1;
 }
