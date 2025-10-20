@@ -21,40 +21,37 @@
 
 struct package
 {
-  struct job_queue *jq;
   const char *line;
   const char *needle;
-  int *lineno;
+  int lineno;
   const char *path;
 };
 
-void grepline(const char *line, const char *needle, int *lineno, const char *path)
+void grepline(const char *line, const char *needle, int lineno, const char *path)
 {
   if (strstr(line, needle) != NULL)
   {
-    printf("%s:%d: %s", path, *lineno, line);
+    printf("%s:%d: %s", path, lineno, line);
   }
 }
 
 void *worker(void *arg)
 {
-  struct package *package = arg;
+  //job queue is argument
+  struct job_queue* jq = arg;
   while (1)
   {
-    char *line;
-    if (job_queue_pop(package->jq, (void **)&line) == 0)
+    struct package* job;
+    //Take a package from the queue
+    if (job_queue_pop(jq, (void**)&job) == 0)
     {
-      grepline(package->line, package->needle, package->lineno, package->path);
-      pthread_mutex_lock(&package->jq->lock);
-      package->lineno++;
-      pthread_mutex_unlock(&package->jq->lock);
-      free(line);
+      //grep line it
+      grepline(job->line, job->needle, job->lineno, job->path);
+      free((void*)job->line);
+      free(job);
     }
     else
     {
-      // If job_queue_pop() returned non-zero, that means the queue is
-      // being killed (or some other error occured).  In any case,
-      // that means it's time for this thread to die.
       break;
     }
   }
@@ -73,15 +70,8 @@ int main(int argc, char *const *argv)
   int num_threads = 1;
   char const *needle = argv[1];
   char *const *paths = &argv[2];
-  int *lineno = 0;
   if (argc > 3 && strcmp(argv[1], "-n") == 0)
   {
-    // Since atoi() simply returns zero on syntax errors, we cannot
-    // distinguish between the user entering a zero, or some
-    // non-numeric garbage.  In fact, we cannot even tell whether the
-    // given option is suffixed by garbage, i.e. '123foo' returns
-    // '123'.  A more robust solution would use strtol(), but its
-    // interface is more complicated, so here we are.
     num_threads = atoi(argv[2]);
 
     if (num_threads < 1)
@@ -116,6 +106,15 @@ int main(int argc, char *const *argv)
     err(1, "fts_open() failed");
     return -1;
   }
+  //Initialize threads.
+  char* path = NULL;
+  for (int i = 0; i < num_threads; i++)
+      {
+        if (pthread_create(&threads[i], NULL, &worker, &jq) != 0)
+        {
+          err(1, "pthread_create() failed");
+        }
+      }
 
   FTSENT *p;
   ssize_t line_len;
@@ -128,25 +127,22 @@ int main(int argc, char *const *argv)
     case FTS_D:
       break;
     case FTS_F:
-
-      while ((line_len = getline(&line, &buf_len, stdin)) != -1)
-      {
-        job_queue_push(&jq, (void *)strdup(line));
+    path = p->fts_path;
+    FILE *f = fopen(path, "r");
+    assert(f);
+    int lineno = 1;
+      while ((line_len = getline(&line, &buf_len, f)) != -1)
+      { 
+        struct package *pkg = malloc(sizeof(struct package));
+        pkg->line = strdup(line);  // Don't forget to copy the line!
+        pkg->lineno = lineno;
+        pkg->needle = needle;
+        pkg->path = path;
+        job_queue_push(&jq, (void *)pkg);
+        lineno++;
       }
       free(line);
-      for (int i = 0; i < num_threads; i++)
-      {
-        struct package *pac = malloc(sizeof(struct package));
-        pac->jq = &jq;
-        pac->lineno = lineno;
-        pac->needle = needle;
-        pac->path = p->fts_path;
-        if (pthread_create(&threads[i], NULL, &worker, &pac) != 0)
-        {
-          err(1, "pthread_create() failed");
-        }
-      }
-      assert(0); // Process the file p->fts_path, somehow.
+      fclose(f);
       break;
     default:
       break;
@@ -164,8 +160,6 @@ int main(int argc, char *const *argv)
       err(1, "pthread_join() failed");
     }
   }
-
-  assert(0); // Shut down the job queue and the worker threads here.
 
   return 0;
 }
