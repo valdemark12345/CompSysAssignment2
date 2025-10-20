@@ -37,17 +37,17 @@ void grepline(const char *line, const char *needle, int lineno, const char *path
 
 void *worker(void *arg)
 {
-  //job queue is argument
-  struct job_queue* jq = arg;
+  // job queue is argument
+  struct job_queue *jq = arg;
   while (1)
   {
-    struct package* job;
-    //Take a package from the queue
-    if (job_queue_pop(jq, (void**)&job) == 0)
+    struct package *job;
+    // Take a package from the queue
+    if (job_queue_pop(jq, (void **)&job) == 0)
     {
-      //grep line it
+      // grep line it
       grepline(job->line, job->needle, job->lineno, job->path);
-      free((void*)job->line);
+      free((void *)job->line);
       free(job);
     }
     else
@@ -106,15 +106,15 @@ int main(int argc, char *const *argv)
     err(1, "fts_open() failed");
     return -1;
   }
-  //Initialize threads.
-  char* path = NULL;
+  // Initialize threads.
+  char *path = NULL;
   for (int i = 0; i < num_threads; i++)
-      {
-        if (pthread_create(&threads[i], NULL, &worker, &jq) != 0)
-        {
-          err(1, "pthread_create() failed");
-        }
-      }
+  {
+    if (pthread_create(&threads[i], NULL, &worker, &jq) != 0)
+    {
+      err(1, "pthread_create() failed");
+    }
+  }
 
   FTSENT *p;
   ssize_t line_len;
@@ -127,14 +127,14 @@ int main(int argc, char *const *argv)
     case FTS_D:
       break;
     case FTS_F:
-    path = p->fts_path;
-    FILE *f = fopen(path, "r");
-    assert(f);
-    int lineno = 1;
+      path = p->fts_path;
+      FILE *f = fopen(path, "r");
+      assert(f);
+      int lineno = 1;
       while ((line_len = getline(&line, &buf_len, f)) != -1)
-      { 
+      {
         struct package *pkg = malloc(sizeof(struct package));
-        pkg->line = strdup(line);  // Don't forget to copy the line!
+        pkg->line = strdup(line); // Don't forget to copy the line!
         pkg->lineno = lineno;
         pkg->needle = needle;
         pkg->path = path;

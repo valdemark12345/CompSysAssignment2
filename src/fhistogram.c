@@ -2,15 +2,15 @@
 // certain header file contents on GNU/Linux systems.
 #define _DEFAULT_SOURCE
 
+#include <assert.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <string.h>
-#include <stdint.h>
 
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fts.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 // err.h contains various nonstandard BSD extensions, but they are
 // very handy.
@@ -18,14 +18,16 @@
 
 #include "histogram.h"
 
-int global_histogram[8] = { 0 };
+int global_histogram[8] = {0};
 
-int fhistogram(char const *path) {
+int fhistogram(char const *path)
+{
   FILE *f = fopen(path, "r");
 
-  int local_histogram[8] = { 0 };
+  int local_histogram[8] = {0};
 
-  if (f == NULL) {
+  if (f == NULL)
+  {
     fflush(stdout);
     warn("failed to open %s", path);
     return -1;
@@ -34,10 +36,12 @@ int fhistogram(char const *path) {
   int i = 0;
 
   char c;
-  while (fread(&c, sizeof(c), 1, f) == 1) {
+  while (fread(&c, sizeof(c), 1, f) == 1)
+  {
     i++;
     update_histogram(local_histogram, c);
-    if ((i % 100000) == 0) {
+    if ((i % 100000) == 0)
+    {
       merge_histogram(local_histogram, global_histogram);
       print_histogram(global_histogram);
     }
@@ -51,13 +55,15 @@ int fhistogram(char const *path) {
   return 0;
 }
 
-int main(int argc, char * const *argv) {
-  if (argc < 2) {
+int main(int argc, char *const *argv)
+{
+  if (argc < 2)
+  {
     err(1, "usage: paths...");
     exit(1);
   }
 
-  char * const *paths = &argv[1];
+  char *const *paths = &argv[1];
 
   // FTS_LOGICAL = follow symbolic links
   // FTS_NOCHDIR = do not change the working directory of the process
@@ -67,14 +73,17 @@ int main(int argc, char * const *argv) {
   int fts_options = FTS_LOGICAL | FTS_NOCHDIR;
 
   FTS *ftsp;
-  if ((ftsp = fts_open(paths, fts_options, NULL)) == NULL) {
+  if ((ftsp = fts_open(paths, fts_options, NULL)) == NULL)
+  {
     err(1, "fts_open() failed");
     return -1;
   }
 
   FTSENT *p;
-  while ((p = fts_read(ftsp)) != NULL) {
-    switch (p->fts_info) {
+  while ((p = fts_read(ftsp)) != NULL)
+  {
+    switch (p->fts_info)
+    {
     case FTS_D:
       break;
     case FTS_F:

@@ -18,6 +18,9 @@ test: $(TESTS)
 clean:
 	rm -rf $(TESTS) $(EXAMPLES) *.o *.dSYM core
 
+format:
+	clang-format -i $(EXAMPLES) *.c
+
 zip: ../src.zip
 
 ../src.zip:
