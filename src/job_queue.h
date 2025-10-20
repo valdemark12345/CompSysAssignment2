@@ -13,10 +13,12 @@ struct job_queue {
   int size;
   int front; 
   int back;
-
+  int active_workers;
+  
   pthread_mutex_t lock;           
   pthread_cond_t empty_cond;
   pthread_cond_t full_cond;
+  pthread_cond_t done_cond;
 
   int destroyed;
 };
