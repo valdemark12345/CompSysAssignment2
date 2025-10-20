@@ -19,6 +19,34 @@
 
 #include "job_queue.h"
 
+void grepline(const char *line, const char *needle, int lineno, const char *path){
+    if (strstr(line, needle) != NULL) {
+      printf("%s:%d: %s", path, lineno, line);
+    }
+}
+
+void* worker(void *arg, const char *needle, int* lineno, const char *path) {
+  struct job_queue *jq = arg;
+  while (1) {
+    char *line;
+    if (job_queue_pop(jq, (void**)&line) == 0) {
+      grepline(line, needle, lineno, path);
+      pthread_mutex_lock(&jq->lock);
+      lineno++;
+      pthread_mutex_unlock(&jq->lock);
+      free(line);
+    } else {
+      // If job_queue_pop() returned non-zero, that means the queue is
+      // being killed (or some other error occured).  In any case,
+      // that means it's time for this thread to die.
+      break;
+    }
+  }
+
+  return NULL;
+}
+
+
 int main(int argc, char * const *argv) {
   if (argc < 2) {
     err(1, "usage: [-n INT] STRING paths...");
@@ -28,8 +56,7 @@ int main(int argc, char * const *argv) {
   int num_threads = 1;
   char const *needle = argv[1];
   char * const *paths = &argv[2];
-
-
+  int *lineno = 0;
   if (argc > 3 && strcmp(argv[1], "-n") == 0) {
     // Since atoi() simply returns zero on syntax errors, we cannot
     // distinguish between the user entering a zero, or some
@@ -52,7 +79,8 @@ int main(int argc, char * const *argv) {
   }
 
   assert(0); // Initialise the job queue and some worker threads here.
-
+  struct job_queue jq;
+  job_queue_init(&jq, 64);
   // FTS_LOGICAL = follow symbolic links
   // FTS_NOCHDIR = do not change the working directory of the process
   //
