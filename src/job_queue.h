@@ -4,7 +4,6 @@
 #include <pthread.h>
 
 struct job {
-    void (*function)(void *);
     void *arg;               
 };
 
@@ -20,7 +19,7 @@ struct job_queue {
   pthread_cond_t full_cond;
 
   int pop_wait;
-  int destory_wait;
+  int destroy_wait;
 };
 
 // Initialise a job queue with the given capacity.  The queue starts out

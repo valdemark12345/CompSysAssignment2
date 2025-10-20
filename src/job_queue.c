@@ -35,7 +35,7 @@ int job_queue_destroy(struct job_queue *job_queue) {
   }
   //If the pop_wait is 1, then sent signal to pop to return -1 
   if (job_queue->pop_wait == 1){
-    job_queue->destory_wait = 1;
+    job_queue->destroy_wait = 1;
     pthread_cond_signal(&job_queue->empty_cond);
   }
 
@@ -65,7 +65,6 @@ int job_queue_push(struct job_queue *job_queue, void *data) {
 
   // Store the pointer as payload
   job_queue->jobs[job_queue->back].arg = data;
-  job_queue->jobs[job_queue->back].function = NULL;
 
   //Specifics for how front and back of queue is determines 
   job_queue->back = (job_queue->back + 1) % job_queue->capacity;
@@ -92,7 +91,7 @@ int job_queue_pop(struct job_queue *job_queue, void **data) {
   job_queue->pop_wait = 0;
 
   //If a destroy queue is waiting return while pop was waiting -1 
-  if (job_queue->destory_wait == 1) 
+  if (job_queue->destroy_wait == 1) 
   {
     pthread_mutex_unlock(&job_queue->lock);
     return -1; 
