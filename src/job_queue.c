@@ -39,6 +39,9 @@ int job_queue_destroy(struct job_queue *job_queue) {
     pthread_cond_signal(&job_queue->empty_cond);
   }
 
+  //unlock before destroying sync primitives ---
+  pthread_mutex_unlock(&job_queue->lock);
+
   //Destroys Mutex and conditions 
   pthread_mutex_destroy(&job_queue->lock);
   pthread_cond_destroy(&job_queue->empty_cond);
@@ -46,8 +49,6 @@ int job_queue_destroy(struct job_queue *job_queue) {
 
   //Frees job queue array 
   free(job_queue->jobs);
-
-  pthread_mutex_unlock(&job_queue->lock);
 
   return 0;
 }
@@ -62,14 +63,16 @@ int job_queue_push(struct job_queue *job_queue, void *data) {
     pthread_cond_wait(&job_queue->full_cond, &job_queue->lock); //If full, waits until not full
   }
 
+  // Store the pointer as payload
+  job_queue->jobs[job_queue->back].arg = data;
+  job_queue->jobs[job_queue->back].function = NULL;
+
   //Specifics for how front and back of queue is determines 
-  job_queue->jobs[job_queue->back] = *(struct job*) data;
   job_queue->back = (job_queue->back + 1) % job_queue->capacity;
   job_queue->size++;
 
   //Sebt signal that job queue is not empty anymore 
   pthread_cond_signal(&job_queue->empty_cond);
-
 
   pthread_mutex_unlock(&job_queue->lock);
   return 0; 
@@ -94,9 +97,10 @@ int job_queue_pop(struct job_queue *job_queue, void **data) {
     pthread_mutex_unlock(&job_queue->lock);
     return -1; 
   }
-  //Saves the pointer of data to the row which is poped. 
+  // Return the stored pointer payload
+  *data = job_queue->jobs[job_queue->front].arg;
+  
   //Specifics for how the front and back works for the queue
-  *data = &job_queue->jobs[job_queue->front];
   job_queue->front = (job_queue->front + 1) % job_queue->capacity;
   job_queue->size--;
 
