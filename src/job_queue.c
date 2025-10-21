@@ -39,7 +39,7 @@ int job_queue_destroy(struct job_queue *job_queue)
   // Mark as destroyed
   job_queue->destroyed = 1;
 
-  // Wake up ALL waiting threads (both pushers and poppers)
+  // Wake up all waiting threads
   pthread_cond_broadcast(&job_queue->empty_cond);
   pthread_cond_broadcast(&job_queue->full_cond);
 
