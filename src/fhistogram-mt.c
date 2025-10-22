@@ -48,26 +48,21 @@ int fhistogram(char const *path)
   char c;
   while (fread(&c, sizeof(c), 1, f) == 1)
   {
-    i++;
+    i++; 
     update_histogram(local_histogram, c);
-    if ((i % 100000) == 0)
+     if ((i % 500000) == 0)
     {
       pthread_mutex_lock(&stdout_mutex);
       merge_histogram(local_histogram, global_histogram);
       print_histogram(global_histogram);
       pthread_mutex_unlock(&stdout_mutex);
-
-      for(int j = 0; j < 8; j++) {
-        local_histogram[j] = 0;
-      }
-    }
+    } 
   }
   
   fclose(f);
 
   pthread_mutex_lock(&stdout_mutex);
   merge_histogram(local_histogram, global_histogram);
-  print_histogram(global_histogram);
   pthread_mutex_unlock(&stdout_mutex);
 
   return 0;
@@ -190,6 +185,7 @@ int main(int argc, char *const *argv)
       err(1, "pthread_join() failed");
     }
   }
+  print_histogram(global_histogram);
 
   move_lines(9);
   free(threads);
