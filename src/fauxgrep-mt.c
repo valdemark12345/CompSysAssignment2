@@ -70,6 +70,7 @@ void *worker(void *arg)
     {
       // grep line it
       fauxgrep_file(job->needle, job->path);
+      free((void*)job->path);
       free(job);
     }
     else
@@ -155,7 +156,6 @@ int main(int argc, char *const *argv)
       break;
     }
   }
-
   fts_close(ftsp);
 
   // Destroy the queue.
@@ -167,6 +167,6 @@ int main(int argc, char *const *argv)
       err(1, "pthread_join() failed");
     }
   }
-
+  free(threads);
   return 0;
 }
