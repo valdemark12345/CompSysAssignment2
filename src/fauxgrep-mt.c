@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <unistd.h>
 #include <fts.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -21,18 +21,41 @@
 
 struct package
 {
-  const char *line;
   const char *needle;
-  int lineno;
   const char *path;
 };
+pthread_mutex_t stdout_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-void grepline(const char *line, const char *needle, int lineno, const char *path)
+int fauxgrep_file(char const *needle, char const *path)
 {
-  if (strstr(line, needle) != NULL)
+  FILE *f = fopen(path, "r");
+
+  if (f == NULL)
   {
-    printf("%s:%d: %s", path, lineno, line);
+    warn("failed to open %s", path);
+    return -1;
   }
+
+  char *line = NULL;
+  size_t linelen = 0;
+  int lineno = 1;
+
+  while (getline(&line, &linelen, f) != -1)
+  {
+    if (strstr(line, needle) != NULL)
+    {
+      pthread_mutex_lock(&stdout_mutex);
+      printf("%s:%d: %s", path, lineno, line);
+      pthread_mutex_unlock(&stdout_mutex);
+    }
+
+    lineno++;
+  }
+
+  free(line);
+  fclose(f);
+
+  return 0;
 }
 
 void *worker(void *arg)
@@ -46,8 +69,7 @@ void *worker(void *arg)
     if (job_queue_pop(jq, (void **)&job) == 0)
     {
       // grep line it
-      grepline(job->line, job->needle, job->lineno, job->path);
-      free((void *)job->line);
+      fauxgrep_file(job->needle, job->path);
       free(job);
     }
     else
@@ -67,7 +89,7 @@ int main(int argc, char *const *argv)
     exit(1);
   }
 
-  int num_threads = 1;
+  int num_threads = sysconf(_SC_NPROCESSORS_ONLN);
   char const *needle = argv[1];
   char *const *paths = &argv[2];
   if (argc > 3 && strcmp(argv[1], "-n") == 0)
@@ -117,9 +139,6 @@ int main(int argc, char *const *argv)
   }
 
   FTSENT *p;
-  ssize_t line_len;
-  size_t buf_len = 0;
-  char *line = NULL;
   while ((p = fts_read(ftsp)) != NULL)
   {
     switch (p->fts_info)
@@ -128,21 +147,10 @@ int main(int argc, char *const *argv)
       break;
     case FTS_F:
       path = p->fts_path;
-      FILE *f = fopen(path, "r");
-      assert(f);
-      int lineno = 1;
-      while ((line_len = getline(&line, &buf_len, f)) != -1)
-      {
-        struct package *pkg = malloc(sizeof(struct package));
-        pkg->line = strdup(line); // Don't forget to copy the line!
-        pkg->lineno = lineno;
-        pkg->needle = needle;
-        pkg->path = path;
-        job_queue_push(&jq, (void *)pkg);
-        lineno++;
-      }
-      free(line);
-      fclose(f);
+      struct package *pkg = malloc(sizeof(struct package));
+      pkg->needle = needle;
+      pkg->path = path;
+      job_queue_push(&jq, (void *)pkg);
       break;
     default:
       break;
