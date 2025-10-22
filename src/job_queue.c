@@ -3,10 +3,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// Setting up the circular queue.
+//Setting up the circular queue.
 int job_queue_init(struct job_queue *job_queue, int capacity)
 {
-  // Malloc space for queue of jobs
+  //Malloc space for jobs
   job_queue->jobs = (struct job *)malloc(sizeof(struct job) * capacity);
   if (job_queue->jobs == NULL)
   {
@@ -19,6 +19,7 @@ int job_queue_init(struct job_queue *job_queue, int capacity)
   pthread_cond_init(&job_queue->full_cond, NULL);
   pthread_cond_init(&job_queue->done_cond, NULL);
 
+  //Reset queue state
   job_queue->capacity = capacity;
   job_queue->back = 0;
   job_queue->front = 0;
@@ -29,28 +30,28 @@ int job_queue_init(struct job_queue *job_queue, int capacity)
   return 0;
 }
 
-// Shut down the queue.
+//Shut down the queue
 int job_queue_destroy(struct job_queue *jq)
 {
+  //Lock the queue so only one thread touches state
   pthread_mutex_lock(&jq->lock);
 
-  // Wait until queue is empty
-  while (jq->size > 0)
-  {
+  //Block until queue is empty
+  while (jq->size > 0) {
     pthread_cond_wait(&jq->full_cond, &jq->lock);
   }
 
-  // Tell consumers no more work will arrive; wake any waiters
+  //Set shutdown flag and wake all threat
   jq->destroyed = 1;
   pthread_cond_broadcast(&jq->empty_cond);
   pthread_cond_broadcast(&jq->full_cond);
 
-  // Wait until all workers have stopped using the queue
-  while (jq->active_workers > 0)
-  {
+  //Wait until all jobs are finished
+  while (jq->active_workers > 0) {
     pthread_cond_wait(&jq->done_cond, &jq->lock);
   }
 
+  //Unlock the queue
   pthread_mutex_unlock(&jq->lock);
 
   // Release buffer memory
@@ -59,31 +60,31 @@ int job_queue_destroy(struct job_queue *jq)
   return 0;
 }
 
-// enqueue the jobs
+//Enqueue the jobs
 int job_queue_push(struct job_queue *job_queue, void *data)
 {
+  //Lock to protect shared queue so only one threat can add a job
   pthread_mutex_lock(&job_queue->lock);
 
-  // Check if destroyed first
+  // Abort if job_queue is set to be destroyed
   if (job_queue->destroyed)
   {
     pthread_mutex_unlock(&job_queue->lock);
     return -1;
   }
 
-  // Wait while the queue is full
+  //Wait while queue is full
   while (job_queue->size == job_queue->capacity)
   {
-    // if queue is full -> Lock
     pthread_cond_wait(&job_queue->full_cond, &job_queue->lock);
   }
 
-  // Push the job
+  //Add new job and move tail pointer
   job_queue->jobs[job_queue->back].arg = data;
   job_queue->back = (job_queue->back + 1) % job_queue->capacity;
   job_queue->size++;
 
-  // Change the queue is not empty anymore
+  //Signal a worker that a job is available
   pthread_cond_signal(&job_queue->empty_cond);
   pthread_mutex_unlock(&job_queue->lock);
 
@@ -92,51 +93,53 @@ int job_queue_push(struct job_queue *job_queue, void *data)
 
 int job_queue_pop(struct job_queue *job_queue, void **data)
 {
-  // Thread-local variable to track if this thread has an active job
+  //Thread-local flag to track active job
   static __thread int has_active_job = 0;
 
+  //Lock to prevent multiple workers taking same job
   pthread_mutex_lock(&job_queue->lock);
 
-  // If this thread had an active job, it's now complete
+  // If returning after a job -> signal the job is completed, and decrement activeworker count
   if (has_active_job)
   {
-    // Decrement activeworkers and the workers field has_active_job
     job_queue->active_workers--;
     has_active_job = 0;
-
-    // If the job_queue is destoyed and there is no more active workers -> signal done.
+    
+    //If shutdown and last worker -> flag to destroy
     if (job_queue->destroyed && job_queue->active_workers == 0)
     {
       pthread_cond_signal(&job_queue->done_cond);
     }
   }
 
-  // Wait while empty AND not destroyed
+  //Wait for work while not shutting down
   while (job_queue->size == 0 && !job_queue->destroyed)
   {
     pthread_cond_wait(&job_queue->empty_cond, &job_queue->lock);
   }
 
-  // If destroyed and empty, return error
+  //If shutting down and nothing left -> exit
   if (job_queue->destroyed && job_queue->size == 0)
   {
     pthread_mutex_unlock(&job_queue->lock);
     return -1;
   }
 
-  // Pop the job
+  //Read item at front and advance
   *data = job_queue->jobs[job_queue->front].arg;
   job_queue->front = (job_queue->front + 1) % job_queue->capacity;
   job_queue->size--;
 
-  // This thread now has an active job
+  //Mark this thread as active worker
   job_queue->active_workers++;
   has_active_job = 1;
 
-  // Signal that queue has space now
+  //Notify a threat that space exists
   pthread_cond_signal(&job_queue->full_cond);
 
+  //Unlock the queue so other threads can continue
   pthread_mutex_unlock(&job_queue->lock);
 
   return 0;
 }
+
