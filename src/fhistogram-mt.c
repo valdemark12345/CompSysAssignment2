@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <unistd.h>
 #include <fts.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -15,21 +15,23 @@
 #include "job_queue.h"
 
 pthread_mutex_t stdout_mutex = PTHREAD_MUTEX_INITIALIZER;
-int global_histogram[8] = {0};
+
 // err.h contains various nonstandard BSD extensions, but they are
 // very handy.
 #include <err.h>
 
 #include "histogram.h"
+int global_histogram[8] = {0};
 
 struct package
 {
   const char *path;
 };
 
+
 int fhistogram(char const *path)
 {
-
+  
   FILE *f = fopen(path, "r");
 
   int local_histogram[8] = {0};
@@ -55,22 +57,23 @@ int fhistogram(char const *path)
       print_histogram(global_histogram);
       pthread_mutex_unlock(&stdout_mutex);
 
-      for (int j = 0; j < 8; j++)
-      {
+      for(int j = 0; j < 8; j++) {
         local_histogram[j] = 0;
       }
     }
   }
-
+  
   fclose(f);
 
   pthread_mutex_lock(&stdout_mutex);
   merge_histogram(local_histogram, global_histogram);
   print_histogram(global_histogram);
   pthread_mutex_unlock(&stdout_mutex);
+  
 
   return 0;
 }
+
 
 void *worker(void *arg)
 {
@@ -103,9 +106,8 @@ int main(int argc, char *const *argv)
     err(1, "usage: paths...");
     exit(1);
   }
-
-  int num_threads = 1;
   char *const *paths = &argv[1];
+  int num_threads = sysconf(_SC_NPROCESSORS_ONLN);
 
   if (argc > 3 && strcmp(argv[1], "-n") == 0)
   {
@@ -133,32 +135,33 @@ int main(int argc, char *const *argv)
   job_queue_init(&jq, 64);
 
   pthread_t *threads = calloc(num_threads, sizeof(pthread_t));
-  for (int i = 0; i < num_threads; i++)
-  {
-    if (pthread_create(&threads[i], NULL, &worker, &jq) != 0)
-    {
-      err(1, "pthread_create() failed");
-    }
-  }
 
-  // FTS_LOGICAL = follow symbolic links
+    // FTS_LOGICAL = follow symbolic links
   // FTS_NOCHDIR = do not change the working directory of the process
   //
   // (These are not particularly important distinctions for our simple
   // uses.)
-  int fts_options = FTS_LOGICAL | FTS_NOCHDIR;
 
   FTS *ftsp;
+  int fts_options = FTS_LOGICAL | FTS_NOCHDIR;
+
   if ((ftsp = fts_open(paths, fts_options, NULL)) == NULL)
   {
     err(1, "fts_open() failed");
     return -1;
   }
 
+  // Initialize threads
+
+  for (int i = 0; i < num_threads; i++){
+    if (pthread_create(&threads[i], NULL, &worker, &jq) != 0)
+    {
+      err(1, "pthread_create() failed");
+    }
+  }
+
   FTSENT *p;
-  ssize_t line_len;
-  size_t buf_len = 0;
-  char *line = NULL;
+
   while ((p = fts_read(ftsp)) != NULL)
   {
     switch (p->fts_info)
@@ -166,18 +169,12 @@ int main(int argc, char *const *argv)
     case FTS_D:
       break;
     case FTS_F:
-      paths = &p->fts_path;
-      FILE *f = fopen(*paths, "r");
-      assert(f);
-      while ((line_len = getline(&line, &buf_len, f)) != -1)
-      {
-        struct package *pkg = malloc(sizeof(struct package));
-        pkg->path = strdup(p->fts_path);
-        job_queue_push(&jq, (void *)pkg);
-      }
-      free(line);
-      fclose(f);
+    {
+      struct package *pkg = malloc(sizeof(struct package));
+      pkg->path = strdup(p->fts_path);
+      job_queue_push(&jq, (void *)pkg);
       break;
+    }
     default:
       break;
     }
