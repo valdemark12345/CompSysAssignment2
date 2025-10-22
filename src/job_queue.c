@@ -13,7 +13,7 @@ int job_queue_init(struct job_queue *job_queue, int capacity)
     return -1;
   }
 
-  // Initializes the mutex and condition variables
+  // Initialize the mutex and condition variables
   pthread_mutex_init(&job_queue->lock, NULL);
   pthread_cond_init(&job_queue->empty_cond, NULL);
   pthread_cond_init(&job_queue->full_cond, NULL);
