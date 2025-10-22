@@ -69,7 +69,6 @@ int fhistogram(char const *path)
   merge_histogram(local_histogram, global_histogram);
   print_histogram(global_histogram);
   pthread_mutex_unlock(&stdout_mutex);
-  
 
   return 0;
 }
@@ -85,6 +84,7 @@ void *worker(void *arg)
     if (job_queue_pop(jq, (void **)&job) == 0)
     {
       fhistogram(job->path);
+      free((void*)job->path);
       free(job);
     }
     else
@@ -192,6 +192,7 @@ int main(int argc, char *const *argv)
   }
 
   move_lines(9);
+  free(threads);
 
   return 0;
 }
