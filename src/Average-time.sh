@@ -3,7 +3,7 @@
 # Usage: ./test-fauxgrep ./process [args]
 # Optional: change NUM_RUNS below
 
-NUM_RUNS=1000
+NUM_RUNS=100
 TOTAL=0
 
 for ((i=1; i<=NUM_RUNS; i++)); do
