@@ -129,7 +129,6 @@ int main(int argc, char *const *argv)
     return -1;
   }
   // Initialize threads.
-  char *path = NULL;
   for (int i = 0; i < num_threads; i++)
   {
     if (pthread_create(&threads[i], NULL, &worker, &jq) != 0)
@@ -139,6 +138,7 @@ int main(int argc, char *const *argv)
   }
 
   FTSENT *p;
+  struct package *pkg;
   while ((p = fts_read(ftsp)) != NULL)
   {
     switch (p->fts_info)
@@ -146,10 +146,9 @@ int main(int argc, char *const *argv)
     case FTS_D:
       break;
     case FTS_F:
-      path = p->fts_path;
-      struct package *pkg = malloc(sizeof(struct package));
+      pkg = malloc(sizeof(struct package));
       pkg->needle = needle;
-      pkg->path = path;
+      pkg->path = strdup(p->fts_path);
       job_queue_push(&jq, (void *)pkg);
       break;
     default:
