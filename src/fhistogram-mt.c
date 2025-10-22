@@ -22,16 +22,14 @@ int global_histogram[8] = {0};
 
 #include "histogram.h"
 
-
 struct package
 {
   const char *path;
 };
 
-
 int fhistogram(char const *path)
 {
-  
+
   FILE *f = fopen(path, "r");
 
   int local_histogram[8] = {0};
@@ -57,19 +55,19 @@ int fhistogram(char const *path)
       print_histogram(global_histogram);
       pthread_mutex_unlock(&stdout_mutex);
 
-      for(int j = 0; j < 8; j++) {
+      for (int j = 0; j < 8; j++)
+      {
         local_histogram[j] = 0;
       }
     }
   }
-  
+
   fclose(f);
 
   pthread_mutex_lock(&stdout_mutex);
   merge_histogram(local_histogram, global_histogram);
   print_histogram(global_histogram);
   pthread_mutex_unlock(&stdout_mutex);
-  
 
   return 0;
 }
@@ -135,21 +133,21 @@ int main(int argc, char *const *argv)
   job_queue_init(&jq, 64);
 
   pthread_t *threads = calloc(num_threads, sizeof(pthread_t));
-    for (int i = 0; i < num_threads; i++)
+  for (int i = 0; i < num_threads; i++)
   {
     if (pthread_create(&threads[i], NULL, &worker, &jq) != 0)
     {
       err(1, "pthread_create() failed");
     }
   }
-  
+
   // FTS_LOGICAL = follow symbolic links
   // FTS_NOCHDIR = do not change the working directory of the process
   //
   // (These are not particularly important distinctions for our simple
   // uses.)
   int fts_options = FTS_LOGICAL | FTS_NOCHDIR;
-  
+
   FTS *ftsp;
   if ((ftsp = fts_open(paths, fts_options, NULL)) == NULL)
   {
