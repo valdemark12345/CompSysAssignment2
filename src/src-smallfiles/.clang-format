@@ -1,0 +1,6 @@
+# Example .clang-format
+BasedOnStyle: LLVM
+IndentWidth: 2
+ColumnLimit: 100
+UseTab: Never
+BreakBeforeBraces: Allman

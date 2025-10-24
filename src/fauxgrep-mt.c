@@ -35,7 +35,6 @@ int fauxgrep_file(char const *needle, char const *path)
     warn("failed to open %s", path);
     return -1;
   }
-
   char *line = NULL;
   size_t linelen = 0;
   int lineno = 1;
