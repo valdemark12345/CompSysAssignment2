@@ -63,8 +63,8 @@ int fhistogram(char const *path)
 
   pthread_mutex_lock(&stdout_mutex);
   merge_histogram(local_histogram, global_histogram);
-  pthread_mutex_unlock(&stdout_mutex);
   print_histogram(global_histogram);
+  pthread_mutex_unlock(&stdout_mutex);
   return 0;
 }
 
@@ -187,6 +187,7 @@ int main(int argc, char *const *argv)
   }
 
   move_lines(9);
+  
   free(threads);
 
   return 0;
